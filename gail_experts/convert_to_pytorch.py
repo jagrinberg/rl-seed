@@ -45,6 +45,8 @@ def main():
         'lengths': lens
     }
 
+    print(data)
+
     torch.save(data, args.pt_file)
 
 
