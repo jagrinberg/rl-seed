@@ -136,6 +136,8 @@ class ExpertDataset(torch.utils.data.Dataset):
             else:
                 self.trajectories[k] = data // subsample_frequency
 
+        print(self.trajectories)
+
         self.i2traj_idx = {}
         self.i2i = {}
         
