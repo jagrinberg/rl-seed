@@ -76,7 +76,7 @@ def get_args():
         '--num-processes',
         type=int,
         default=8,
-        help='how many training CPU processes to use (default: 16)')
+        help='how many training CPU processes to use (default: 8)')
     parser.add_argument(
         '--num-steps',
         type=int,
