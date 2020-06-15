@@ -21,32 +21,39 @@ from evaluation import evaluate
 
 
 def main():
+    #Get arguments from command line
     args = get_args()
 
+    #Set random seeds
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
 
+    #Helps with reproducibility?
     if args.cuda and torch.cuda.is_available() and args.cuda_deterministic:
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
 
+    #Where to log
     log_dir = os.path.expanduser(args.log_dir)
     eval_log_dir = log_dir + "_eval"
     utils.cleanup_log_dir(log_dir)
     utils.cleanup_log_dir(eval_log_dir)
 
+    #Setup torch
     torch.set_num_threads(1)
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, False)
 
+    #Create base policy
     actor_critic = Policy(
         envs.observation_space.shape,
         envs.action_space,
         base_kwargs={'recurrent': args.recurrent_policy})
     actor_critic.to(device)
 
+    #Set algorithm based on input
     if args.algo == 'a2c':
         agent = algo.A2C_ACKTR(
             actor_critic,
@@ -73,13 +80,15 @@ def main():
 
     if args.gail:
         assert len(envs.observation_space.shape) == 1
+        #Create discriminator
         discr = gail.Discriminator(
             envs.observation_space.shape[0] + envs.action_space.shape[0], 100,
             device)
+        #Get filename based on environment
         file_name = os.path.join(
             args.gail_experts_dir, "trajs_{}.pt".format(
                 args.env_name.split('-')[0].lower()))
-        
+        #Store dataset
         expert_dataset = gail.ExpertDataset(
             file_name, num_trajectories=4, subsample_frequency=20)
         drop_last = len(expert_dataset) > args.gail_batch_size
@@ -89,6 +98,7 @@ def main():
             shuffle=True,
             drop_last=drop_last)
 
+    
     rollouts = RolloutStorage(args.num_steps, args.num_processes,
                               envs.observation_space.shape, envs.action_space,
                               actor_critic.recurrent_hidden_state_size)
