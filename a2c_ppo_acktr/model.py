@@ -108,6 +108,7 @@ class NNBase(nn.Module):
     def output_size(self):
         return self._hidden_size
 
+    #Only needed for RNN
     def _forward_gru(self, x, hxs, masks):
         if x.size(0) == hxs.size(0):
             x, hxs = self.gru(x.unsqueeze(0), (hxs * masks).unsqueeze(0))
@@ -165,7 +166,7 @@ class NNBase(nn.Module):
 
         return x, hxs
 
-
+#Create CNN base
 class CNNBase(NNBase):
     def __init__(self, num_inputs, recurrent=False, hidden_size=512):
         super(CNNBase, self).__init__(recurrent, hidden_size, hidden_size)
