@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.utils.data
 from torch import autograd
 
-from baselines.common.running_mean_std import RunningMeanStd
+# from baselines.common.running_mean_std import RunningMeanStd
 
 
 class Discriminator(nn.Module):
@@ -135,6 +135,8 @@ class ExpertDataset(torch.utils.data.Dataset):
                 self.trajectories[k] = torch.stack(samples)
             else:
                 self.trajectories[k] = data // subsample_frequency
+
+        print(self.trajectories)
 
         self.i2traj_idx = {}
         self.i2i = {}
