@@ -69,7 +69,7 @@ class Discriminator(nn.Module):
             policy_d = self.trunk(
                 torch.cat([policy_state, policy_action], dim=1))
 
-            expert_state, expert_action = expert_batch
+            expert_state,   = expert_batch
             expert_state = obsfilt(expert_state.numpy(), update=False)
             expert_state = torch.FloatTensor(expert_state).to(self.device)
             expert_action = expert_action.to(self.device)
