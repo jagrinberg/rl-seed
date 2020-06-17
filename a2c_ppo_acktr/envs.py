@@ -9,7 +9,7 @@ from stable_baselines import bench
 from stable_baselines.common.atari_wrappers import make_atari, wrap_deepmind
 from stable_baselines.common.vec_env.base_vec_env import VecEnvWrapper
 from stable_baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-from stable_baselines.common.vec_env.shmem_vec_env import SubprocVecEnv
+from stable_baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from stable_baselines.common.vec_env.vec_normalize import \
     VecNormalize as VecNormalize_
 
@@ -86,7 +86,7 @@ def make_vec_envs(env_name,
     ]
 
     if len(envs) > 1:
-        envs = SubprocecEnv(envs)
+        envs = SubprocVecEnv(envs)
     else:
         envs = DummyVecEnv(envs)
 

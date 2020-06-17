@@ -47,7 +47,7 @@ env = make_vec_envs(
     1,
     None,
     None,
-    device='cpu',
+    device='cuda',
     allow_early_resets=False)
 
 # Get a render function
@@ -89,14 +89,16 @@ actions = np.zeros((args.num_traj,max_t,env.action_space.n))
 col = 0
 
 while count < args.num_traj:
+    print(obs)
     with torch.no_grad():
         value, action, _, recurrent_hidden_states = actor_critic.act(
             obs, recurrent_hidden_states, masks, deterministic=args.det)
 
     # Obser reward and next obs
-    obs, reward, done, _ = env.step(action)
+    obs, reward, done, _ = env.step(action.squeeze())
+    
     cur_states[count][col] = (get_vec_normalize(env).get_original_obs())
-    cur_reward[count][col = reward
+    cur_reward[count][col] = reward
     cur_actions[count][col][action] = 1
     masks.fill_(0.0 if done else 1.0)
     col+=1
@@ -113,6 +115,11 @@ while count < args.num_traj:
 
     if render_func is not None:
         render_func('human')
+states = torch.from_numpy(states).float()
+actions = torch.from_numpy(actions).float()
+rewards = torch.from_numpy(rewards).float()
+lens = torch.from_numpy(lengths).long()
+
 data = {
         'states': states,
         'actions': actions,
@@ -120,9 +127,5 @@ data = {
         'lengths': lens
     }
 
-states = torch.from_numpy(states).float()
-actions = torch.from_numpy(actions).float()
-rewards = torch.from_numpy(rewards).float()
-lens = torch.from_numpy(lengths).long()
 
-torch.save(data, args.pt_file)
+torch.save(data, "test.pt")
