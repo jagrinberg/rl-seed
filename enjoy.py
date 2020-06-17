@@ -42,7 +42,7 @@ env = make_vec_envs(
     1,
     None,
     None,
-    device='cpu',
+    device='cuda',
     allow_early_resets=False)
 
 # Get a render function
@@ -81,7 +81,10 @@ while True:
 
     # Obser reward and next obs
     obs, reward, done, _ = env.step(action)
-
+    
+    if done:
+        print(done)
+    
     masks.fill_(0.0 if done else 1.0)
 
     if args.env_name.find('Bullet') > -1:

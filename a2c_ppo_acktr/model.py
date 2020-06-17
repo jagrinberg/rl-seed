@@ -15,6 +15,7 @@ class Flatten(nn.Module):
 class Policy(nn.Module):
     def __init__(self, obs_shape, action_space, base=None, base_kwargs=None):
         super(Policy, self).__init__()
+        self.cat = False
         if base_kwargs is None:
             base_kwargs = {}
         if base is None:
@@ -30,6 +31,7 @@ class Policy(nn.Module):
         if action_space.__class__.__name__ == "Discrete":
             num_outputs = action_space.n
             self.dist = Categorical(self.base.output_size, num_outputs)
+            self.cat = True
         elif action_space.__class__.__name__ == "Box":
             num_outputs = action_space.shape[0]
             self.dist = DiagGaussian(self.base.output_size, num_outputs)
@@ -59,7 +61,7 @@ class Policy(nn.Module):
             action = dist.mode()
         else:
             action = dist.sample()
-
+        
         action_log_probs = dist.log_probs(action)
         dist_entropy = dist.entropy().mean()
 
