@@ -6,11 +6,11 @@ import torch.nn.functional as F
 import torch.utils.data
 from torch import autograd
 
-# from baselines.common.running_mean_std import RunningMeanStd
+from stable_baselines.common.running_mean_std import RunningMeanStd
 
 
 class Discriminator(nn.Module):
-    def __init__(self, input_dim, hidden_dim, device):
+    def __init__(self, input_dim, hidden_dim, device, action_dim = None):
         super(Discriminator, self).__init__()
 
         self.device = device
@@ -23,7 +23,9 @@ class Discriminator(nn.Module):
         self.trunk.train()
 
         self.optimizer = torch.optim.Adam(self.trunk.parameters())
-
+        
+        self.action_dim = action_dim
+        
         self.returns = None
         self.ret_rms = RunningMeanStd(shape=())
 
@@ -66,6 +68,10 @@ class Discriminator(nn.Module):
         for expert_batch, policy_batch in zip(expert_loader,
                                               policy_data_generator):
             policy_state, policy_action = policy_batch[0], policy_batch[2]
+           
+            if self.action_dim != None:
+                policy_action = self.create_action(policy_action).to(self.device)           
+            
             policy_d = self.trunk(
                 torch.cat([policy_state, policy_action], dim=1))
 
@@ -98,9 +104,12 @@ class Discriminator(nn.Module):
     def predict_reward(self, state, action, gamma, masks, update_rms=True):
         with torch.no_grad():
             self.eval()
+            if self.action_dim != None:
+                action = self.create_action(action).to(self.device)
             d = self.trunk(torch.cat([state, action], dim=1))
             s = torch.sigmoid(d)
             reward = s.log() - (1 - s).log()
+            #reward = -(1 - s).log()
             if self.returns is None:
                 self.returns = reward.clone()
 
@@ -108,9 +117,15 @@ class Discriminator(nn.Module):
                 self.returns = self.returns * masks * gamma + reward
                 self.ret_rms.update(self.returns.cpu().numpy())
 
-            return reward / np.sqrt(self.ret_rms.var[0] + 1e-8)
+            #return reward / np.sqrt(self.ret_rms.var[0] + 1e-8)
+            return reward, torch.sum(s).item()
 
-
+    def create_action(self, policy_action):
+        x = np.zeros((policy_action.shape[0], self.action_dim))
+        for a in range(policy_action.shape[0]): 
+            x[a][policy_action[a][0].long()] = 1
+        return torch.from_numpy(x).float()
+        
 class ExpertDataset(torch.utils.data.Dataset):
     def __init__(self, file_name, num_trajectories=4, subsample_frequency=20):
         all_trajectories = torch.load(file_name)
@@ -135,8 +150,6 @@ class ExpertDataset(torch.utils.data.Dataset):
                 self.trajectories[k] = torch.stack(samples)
             else:
                 self.trajectories[k] = data // subsample_frequency
-
-        print(self.trajectories)
 
         self.i2traj_idx = {}
         self.i2i = {}

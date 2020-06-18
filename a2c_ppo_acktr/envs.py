@@ -5,12 +5,12 @@ import numpy as np
 import torch
 from gym.spaces.box import Box
 
-from baselines import bench
-from baselines.common.atari_wrappers import make_atari, wrap_deepmind
-from baselines.common.vec_env import VecEnvWrapper
-from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-from baselines.common.vec_env.shmem_vec_env import ShmemVecEnv
-from baselines.common.vec_env.vec_normalize import \
+from stable_baselines import bench
+from stable_baselines.common.atari_wrappers import make_atari, wrap_deepmind
+from stable_baselines.common.vec_env.base_vec_env import VecEnvWrapper
+from stable_baselines.common.vec_env.dummy_vec_env import DummyVecEnv
+from stable_baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
+from stable_baselines.common.vec_env.vec_normalize import \
     VecNormalize as VecNormalize_
 
 try:
@@ -86,13 +86,13 @@ def make_vec_envs(env_name,
     ]
 
     if len(envs) > 1:
-        envs = ShmemVecEnv(envs)
+        envs = SubprocVecEnv(envs)
     else:
         envs = DummyVecEnv(envs)
 
     if len(envs.observation_space.shape) == 1:
         if gamma is None:
-            envs = VecNormalize(envs, ret=False)
+            envs = VecNormalize(envs, norm_reward=False)
         else:
             envs = VecNormalize(envs, gamma=gamma)
 
@@ -188,12 +188,12 @@ class VecNormalize(VecNormalize_):
         self.training = True
 
     def _obfilt(self, obs, update=True):
-        if self.ob_rms:
+        if self.obs_rms:
             if self.training and update:
-                self.ob_rms.update(obs)
-            obs = np.clip((obs - self.ob_rms.mean) /
-                          np.sqrt(self.ob_rms.var + self.epsilon),
-                          -self.clipob, self.clipob)
+                self.obs_rms.update(obs)
+            obs = np.clip((obs - self.obs_rms.mean) /
+                          np.sqrt(self.obs_rms.var + self.epsilon),
+                          -self.clip_obs, self.clip_obs)
             return obs
         else:
             return obs

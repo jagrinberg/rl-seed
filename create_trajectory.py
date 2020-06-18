@@ -32,6 +32,11 @@ parser.add_argument(
     action='store_true',
     default=False,
     help='whether to use a non-deterministic policy')
+parser.add_argument(
+    '--num-traj',
+    type=int,
+    default=10,
+    help='number of trajectories to save (default: 10')
 args = parser.parse_args()
 
 args.det = not args.non_det
@@ -46,7 +51,8 @@ env = make_vec_envs(
     allow_early_resets=False)
 
 # Get a render function
-render_func = get_render_func(env)
+# render_func = get_render_func(env)
+render_func = None
 
 # We need to use the same statistics for normalization as used in training
 actor_critic, ob_rms = \
@@ -74,20 +80,31 @@ if args.env_name.find('Bullet') > -1:
         if (p.getBodyInfo(i)[0].decode() == "torso"):
             torsoId = i
 
-while True:
-    print(obs)
+count = 0
+
+max_t = 1000
+rewards = np.zeros((args.num_traj,max_t))
+lengths = np.zeros((args.num_traj))
+states = np.zeros((args.num_traj,max_t,env.observation_space.shape[0]))
+actions = np.zeros((args.num_traj,max_t,env.action_space.n))
+col = 0
+
+while count < args.num_traj:
     with torch.no_grad():
         value, action, _, recurrent_hidden_states = actor_critic.act(
             obs, recurrent_hidden_states, masks, deterministic=args.det)
-
     # Obser reward and next obs
+    states[count][col] = (get_vec_normalize(env).get_original_obs())
     obs, reward, done, _ = env.step(action.squeeze(0))
-    
-    if done:
-        print(done)
-    
+    rewards[count][col] = reward
+    actions[count][col][action.squeeze()] = 1
     masks.fill_(0.0 if done else 1.0)
-
+    col+=1
+    if done:
+        lengths[count]=col
+        col = 0
+        count += 1
+        print(done)
     if args.env_name.find('Bullet') > -1:
         if torsoId > -1:
             distance = 5
@@ -97,3 +114,18 @@ while True:
 
     if render_func is not None:
         render_func('human')
+states = torch.from_numpy(states).float()
+print(actions)
+actions = torch.from_numpy(actions).float()
+rewards = torch.from_numpy(rewards).float()
+lens = torch.from_numpy(lengths).long()
+
+data = {
+        'states': states,
+        'actions': actions,
+        'rewards': rewards,
+        'lengths': lens
+    }
+
+
+torch.save(data, "test.pt")
