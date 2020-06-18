@@ -55,7 +55,7 @@ actor_critic, ob_rms = \
 vec_norm = get_vec_normalize(env)
 if vec_norm is not None:
     vec_norm.eval()
-    vec_norm.ob_rms = ob_rms
+    vec_norm.obs_rms = ob_rms
 
 recurrent_hidden_states = torch.zeros(1,
                                       actor_critic.recurrent_hidden_state_size)
@@ -75,12 +75,13 @@ if args.env_name.find('Bullet') > -1:
             torsoId = i
 
 while True:
+    print(obs)
     with torch.no_grad():
         value, action, _, recurrent_hidden_states = actor_critic.act(
             obs, recurrent_hidden_states, masks, deterministic=args.det)
 
     # Obser reward and next obs
-    obs, reward, done, _ = env.step(action)
+    obs, reward, done, _ = env.step(action.squeeze(0))
     
     if done:
         print(done)
