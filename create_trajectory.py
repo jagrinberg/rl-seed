@@ -51,8 +51,8 @@ env = make_vec_envs(
     allow_early_resets=False)
 
 # Get a render function
-# render_func = get_render_func(env)
-render_func = None
+render_func = get_render_func(env)
+# render_func = None
 
 # We need to use the same statistics for normalization as used in training
 actor_critic, ob_rms = \
@@ -82,7 +82,7 @@ if args.env_name.find('Bullet') > -1:
 
 count = 0
 
-max_t = 1000
+max_t = 200
 rewards = np.zeros((args.num_traj,max_t))
 lengths = np.zeros((args.num_traj))
 states = np.zeros((args.num_traj,max_t,env.observation_space.shape[0]))
@@ -127,5 +127,5 @@ data = {
         'lengths': lens
     }
 
-
-torch.save(data, "test.pt")
+path = "trajs_{}.pt".format(args.env_name.split('-')[0].lower())
+torch.save(data, path)

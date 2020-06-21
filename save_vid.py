@@ -8,6 +8,7 @@ import torch
 
 from a2c_ppo_acktr.envs import VecPyTorch, make_vec_envs
 from a2c_ppo_acktr.utils import get_render_func, get_vec_normalize
+from stable_baselines.common.vec_env import VecVideoRecorder
 
 sys.path.append('a2c_ppo_acktr')
 
@@ -46,11 +47,12 @@ env = make_vec_envs(
     allow_early_resets=False)
 
 # Get a render function
-render_func = get_render_func(env)
+# render_func = get_render_func(env)
+render_func = None
 
 # We need to use the same statistics for normalization as used in training
 actor_critic, ob_rms = \
-            torch.load(os.path.join(args.load_dir, args.env_name + ".pt"))
+            torch.load(os.path.join(args.load_dir, args.env_name + "gail.pt"))
 
 vec_norm = get_vec_normalize(env)
 if vec_norm is not None:
@@ -60,8 +62,8 @@ if vec_norm is not None:
 recurrent_hidden_states = torch.zeros(1,
                                       actor_critic.recurrent_hidden_state_size)
 masks = torch.zeros(1, 1)
+env = env
 
-obs = env.reset()
 
 if render_func is not None:
     render_func('human')
@@ -74,9 +76,17 @@ if args.env_name.find('Bullet') > -1:
         if (p.getBodyInfo(i)[0].decode() == "torso"):
             torsoId = i
 
+video_folder="trained_models/vid"
+video_length=500
 
-while True:
-    print(obs)
+env = VecVideoRecorder(env, video_folder,
+                       record_video_trigger=lambda x: x == 0, video_length=video_length,
+                       name_prefix="gail-agent-{}".format(args.env_name))
+
+
+obs = env.reset()
+for i in range(video_length):
+    # obs = torch.from_numpy(obs).float().to('cuda')
     with torch.no_grad():
         value, action, _, recurrent_hidden_states = actor_critic.act(
             obs, recurrent_hidden_states, masks, deterministic=args.det)
@@ -98,3 +108,4 @@ while True:
 
     if render_func is not None:
         render_func('human')
+env.close()
