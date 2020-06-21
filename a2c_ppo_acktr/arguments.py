@@ -149,6 +149,18 @@ def get_args():
         action='store_true',
         default=False,
         help='use a linear schedule on the learning rate')
+    parser.add_argument(
+        '--demonstration-coef',
+        type=float,
+        default=.5,
+        help='weight to determine how much to stay away from demonstrations'
+    )
+    parser.add_argument(
+        '--kl-coef',
+        type=float,
+        default=.5,
+        help='weight for KL divergence between policies'
+    )
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

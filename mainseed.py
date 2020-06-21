@@ -61,7 +61,7 @@ def main():
         envs_seed.observation_space.shape,
         envs_seed.action_space,
         base_kwargs={'recurrent': args.recurrent_policy})
-    actor_critic_g.to(device)
+    actor_critic_s.to(device)
     
 
     #Set algorithm based on input
@@ -93,13 +93,15 @@ def main():
             lr=args.lr,
             eps=args.eps,
             max_grad_norm=args.max_grad_norm)
-        agent_s = algo.PPO(
+        agent_s = algo.SEED(
             actor_critic_s,
+            actor_critic_g,
             args.clip_param,
             args.ppo_epoch,
             args.num_mini_batch,
             args.value_loss_coef,
             args.entropy_coef,
+            args.demon_coef,
             lr=args.lr,
             eps=args.eps,
             max_grad_norm=args.max_grad_norm)
@@ -155,7 +157,7 @@ def main():
         vec_norm_s = get_vec_normalize(envs_seed)
         if vec_norm_g is not None:
             vec_norm_s.eval()
-            vec_norm_s.ob_rms = vec_norm_g.ob_rms
+            vec_norm_s.obs_rms = vec_norm_g.obs_rms
         if args.use_linear_lr_decay:
             # decrease learning rate linearly
             utils.update_linear_schedule(
@@ -221,9 +223,9 @@ def main():
                 rollouts_g.rewards[step] = discr.predict_reward(
                     rollouts_g.obs[step], rollouts_g.actions[step], args.gamma,
                     rollouts_g.masks[step])
-                rollouts_s.rewards[step] = -discr.predict_reward(
+                rollouts_s.rewards[step] = -args.demonstration_coef*discr.predict_reward(
                     rollouts_s.obs[step], rollouts_s.actions[step], args.gamma,
-                    rollouts_s.masks[step])
+                    rollouts_s.masks[step])+rollouts_s.rewards[step]
 
         rollouts_g.compute_returns(next_value_g, args.use_gae, args.gamma,
                                  args.gae_lambda, args.use_proper_time_limits)
