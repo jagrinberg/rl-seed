@@ -1,28 +1,22 @@
-import copy
-import glob
-import os
-import time
-from collections import deque
-
 import gym
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
+from stable_baselines.common.vec_env import VecVideoRecorder, DummyVecEnv
 
+env_id = 'CartPole-v1'
+video_folder = 'logs/videos/'
+video_length = 100
 
+env = DummyVecEnv([lambda: gym.make(env_id)])
 
-env = gym.make("CartPole-v1")
-print(env.action_space.n)
-a = np.zeros((2,3,1))
-a[1][2][0] = 2
-b = np.ones((2,4,1))
-m = np.zeros((a.shape[0],a.shape[1],4))
-a = torch.from_numpy(a)
-b = torch.from_numpy(b)
-for x in range(a.shape[0]):
-    for y in range(a.shape[1]):
-        m[x][y][a[x][y][0].long()]=1
-a = torch.from_numpy(m)
-print(a)
+obs = env.reset()
+
+# Record the video starting at the first step
+env = VecVideoRecorder(env, video_folder,
+                       record_video_trigger=lambda x: x == 0, video_length=video_length,
+                       name_prefix="random-agent-{}".format(env_id))
+
+env.reset()
+for _ in range(video_length + 1):
+  action = [env.action_space.sample()]
+  obs, _, _, _ = env.step(action)
+# Save the video
+env.close()
