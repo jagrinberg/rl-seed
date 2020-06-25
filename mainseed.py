@@ -43,13 +43,18 @@ def main():
     #Setup torch
     torch.set_num_threads(1)
     device = torch.device("cuda:0" if args.cuda else "cpu")
-
-    envs_gail = make_vec_envs(args.env_name, args.seed, args.num_processes/2,
+    
+    args.num_processes = int(args.num_processes/2)
+    
+    envs_gail = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, False)
 
-    envs_seed = make_vec_envs(args.env_name, args.seed, args.num_processes/2,
+    envs_seed = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, False)
-
+    
+    init_gail = 300
+    update_freq = 5
+    
     #Create base policy
     actor_critic_g = Policy(
         envs_gail.observation_space.shape,
@@ -101,7 +106,7 @@ def main():
             args.num_mini_batch,
             args.value_loss_coef,
             args.entropy_coef,
-            args.demon_coef,
+            args.kl_coef,
             lr=args.lr,
             eps=args.eps,
             max_grad_norm=args.max_grad_norm)
@@ -114,16 +119,24 @@ def main():
     if args.gail:
         assert len(envs_gail.observation_space.shape) == 1
         #Create discriminator
+        acti = 0
+        space = None
+        if envs_gail.action_space.__class__.__name__ == "Discrete":
+            acti = envs_gail.action_space.n
+            space = acti
+        else:
+            acti = envs_gail.action_space.shape[0]
+            
         discr = gail.Discriminator(
-            envs_gail.observation_space.shape[0] + envs_gail.action_space.shape[0], 100,
-            device)
+            envs_gail.observation_space.shape[0] + acti, 100,
+            device, space)
         #Get filename based on environment
         file_name = os.path.join(
             args.gail_experts_dir, "trajs_{}.pt".format(
-                args.env_name.split('-')[0].lower()))
+                "cartpole"))
         #Store dataset
         expert_dataset = gail.ExpertDataset(
-            file_name, num_trajectories=4, subsample_frequency=20)
+            file_name, num_trajectories=4, subsample_frequency=2)
         drop_last = len(expert_dataset) > args.gail_batch_size
         gail_train_loader = torch.utils.data.DataLoader(
             dataset=expert_dataset,
@@ -147,8 +160,12 @@ def main():
     rollouts_s.obs[0].copy_(obs_seed)
     rollouts_s.to(device)
 
-    episode_rewards = deque(maxlen=10)
-
+    episode_rewards_g = deque(maxlen=10)
+    episode_rewards_s = deque(maxlen=10)
+    
+    episode_rewards_s.append(0)
+    episode_rewards_g.append(0)
+    
     start = time.time()
     num_updates = int(
         args.num_env_steps) // args.num_steps // args.num_processes
@@ -170,74 +187,106 @@ def main():
         for step in range(args.num_steps):
             # Sample actions
             with torch.no_grad():
-                value_g, action_g, action_log_prob_g, recurrent_hidden_states_g = actor_critic_g.act(
-                    rollouts_g.obs[step], rollouts_g.recurrent_hidden_states[step],
-                    rollouts_g.masks[step])
-                value_s, action_s, action_log_prob_s, recurrent_hidden_states_s = actor_critic_s.act(
-                    rollouts_s.obs[step], rollouts_s.recurrent_hidden_states[step],
-                    rollouts_s.masks[step])
+                if j < init_gail or j%update_freq==0:
+                    value_g, action_g, action_log_prob_g, recurrent_hidden_states_g = actor_critic_g.act(
+                        rollouts_g.obs[step], rollouts_g.recurrent_hidden_states[step],
+                        rollouts_g.masks[step])
+                if j > init_gail:
+                    value_s, action_s, action_log_prob_s, recurrent_hidden_states_s = actor_critic_s.act(
+                        rollouts_s.obs[step], rollouts_s.recurrent_hidden_states[step],
+                        rollouts_s.masks[step])
             # Obser reward and next obs
-            obs_g, reward_g, done_g, infos_g = envs_gail.step(action_g)
-            obs_s, reward_s, done_s, infos_s = envs_seed.step(action_s)
+            if j < init_gail or j%update_freq==0:
+                obs_g, reward_g, done_g, infos_g = envs_gail.step(torch.squeeze(action_g))
+                for info in infos_g:
+                    if 'episode' in info.keys():
+                        episode_rewards_g.append(info['episode']['r'])
 
-            for info in infos_s:
-                if 'episode' in info.keys():
-                    episode_rewards.append(info['episode']['r'])
+                # If done then clean the history of observations.
+                masks_g = torch.FloatTensor(
+                    [[0.0] if done_ else [1.0] for done_ in done_g])
+                bad_masks_g = torch.FloatTensor(
+                    [[0.0] if 'bad_transition' in info.keys() else [1.0]
+                     for info in infos_g])
+                
+                rollouts_g.insert(obs_g, recurrent_hidden_states_g, action_g,
+                                action_log_prob_g, value_g, reward_g, masks_g, bad_masks_g)
+            
+            if j > init_gail:
+                obs_s, reward_s, done_s, infos_s = envs_seed.step(torch.squeeze(action_s))
 
-            # If done then clean the history of observations.
-            masks_g = torch.FloatTensor(
-                [[0.0] if done_ else [1.0] for done_ in done_g])
-            bad_masks_g = torch.FloatTensor(
-                [[0.0] if 'bad_transition' in info.keys() else [1.0]
-                 for info in infos_g])
-            masks_s = torch.FloatTensor(
-                [[0.0] if done_ else [1.0] for done_ in done_s])
-            bad_masks_s = torch.FloatTensor(
-                [[0.0] if 'bad_transition' in info.keys() else [1.0]
-                 for info in infos_s])
-            rollouts_g.insert(obs_g, recurrent_hidden_states_g, action_g,
-                            action_log_prob_g, value_g, reward_g, masks_g, bad_masks_g)
-            rollouts_s.insert(obs_s, recurrent_hidden_states_s, action_s,
+                for info in infos_s:
+                    if 'episode' in info.keys():
+                        episode_rewards_s.append(info['episode']['r'])
+                masks_s = torch.FloatTensor(
+                    [[0.0] if done_ else [1.0] for done_ in done_s])
+                bad_masks_s = torch.FloatTensor(
+                    [[0.0] if 'bad_transition' in info.keys() else [1.0]
+                     for info in infos_s])
+                rollouts_s.insert(obs_s, recurrent_hidden_states_s, action_s,
                             action_log_prob_s, value_s, reward_s, masks_s, bad_masks_s)
+
+            
+            
 
 
         with torch.no_grad():
-            next_value_g = actor_critic_g.get_value(
-                rollouts_g.obs[-1], rollouts_g.recurrent_hidden_states[-1],
-                rollouts_g.masks[-1]).detach()
-            next_value_s = actor_critic_s.get_value(
-                rollouts_s.obs[-1], rollouts_s.recurrent_hidden_states[-1],
-                rollouts_s.masks[-1]).detach()
-
+            if j < init_gail or j%update_freq==0:
+                next_value_g = actor_critic_g.get_value(
+                    rollouts_g.obs[-1], rollouts_g.recurrent_hidden_states[-1],
+                    rollouts_g.masks[-1]).detach()
+            if j > init_gail:
+                next_value_s = actor_critic_s.get_value(
+                    rollouts_s.obs[-1], rollouts_s.recurrent_hidden_states[-1],
+                    rollouts_s.masks[-1]).detach()
+        
+        total = 0
         if args.gail:
             if j >= 10:
                 envs_gail.venv.eval()
             gail_epoch = args.gail_epoch
             if j < 10:
                 gail_epoch = 100  # Warm up
-            for _ in range(gail_epoch):
-                discr.update(gail_train_loader, rollouts_g,
-                             utils.get_vec_normalize(envs_gail)._obfilt)
+            if j < init_gail or j%update_freq == 0:
+                for _ in range(gail_epoch):
+                    discr.update(gail_train_loader, rollouts_g,
+                                 utils.get_vec_normalize(envs_gail)._obfilt)
 
             for step in range(args.num_steps):
-                rollouts_g.rewards[step] = discr.predict_reward(
-                    rollouts_g.obs[step], rollouts_g.actions[step], args.gamma,
-                    rollouts_g.masks[step])
-                rollouts_s.rewards[step] = -args.demonstration_coef*discr.predict_reward(
-                    rollouts_s.obs[step], rollouts_s.actions[step], args.gamma,
-                    rollouts_s.masks[step])+rollouts_s.rewards[step]
-
-        rollouts_g.compute_returns(next_value_g, args.use_gae, args.gamma,
-                                 args.gae_lambda, args.use_proper_time_limits)
-        rollouts_s.compute_returns(next_value_s, args.use_gae, args.gamma,
-                                 args.gae_lambda, args.use_proper_time_limits)
-
-        value_loss_g, action_loss_g, dist_entropy_g = agent_g.update(rollouts_g)
-        value_loss_s, action_loss_s, dist_entropy_s = agent_s.update(rollouts_s)
-
-        rollouts_g.after_update()
-        rollouts_s.after_update
-
+                if j < init_gail or j%update_freq == 0:
+                    rollouts_g.rewards[step], h = discr.predict_reward(
+                        rollouts_g.obs[step], rollouts_g.actions[step], args.gamma,
+                        rollouts_g.masks[step])
+                    total += h
+                if j > init_gail:
+                    r_s, h = discr.predict_reward(
+                        rollouts_s.obs[step], rollouts_s.actions[step], args.gamma,
+                        rollouts_s.masks[step])
+                    r_s = torch.clamp(r_s, -5, 5)
+                    rollouts_s.rewards[step]= -args.demonstration_coef*r_s+rollouts_s.rewards[step]
+            total = total/args.num_steps/args.num_processes
+        
+        if j < init_gail or j%update_freq == 0:
+            rollouts_g.compute_returns(next_value_g, args.use_gae, args.gamma,
+                                     args.gae_lambda, args.use_proper_time_limits)
+        if j > init_gail:
+            rollouts_s.compute_returns(next_value_s, args.use_gae, args.gamma,
+                                     args.gae_lambda, args.use_proper_time_limits)
+        
+        # if j % 2 == 0:
+            # value_loss_g, action_loss_g, dist_entropy_g = agent_g.update(rollouts_g)
+            # rollouts_g.after_update()
+        # else:
+            # value_loss_s, action_loss_s, dist_entropy_s = agent_s.update(rollouts_s)
+            # rollouts_s.after_update()
+        if j < init_gail or j%update_freq==0:
+            value_loss_g, action_loss_g, dist_entropy_g = agent_g.update(rollouts_g)
+            rollouts_g.after_update()
+        
+        if j > init_gail:
+            value_loss_s, action_loss_s, dist_entropy_s = agent_s.update(rollouts_s)
+            rollouts_s.after_update()
+   
         # save for every interval-th episode or for the last epoch
         if (j % args.save_interval == 0
                 or j == num_updates - 1) and args.save_dir != "":
@@ -246,28 +295,38 @@ def main():
                 os.makedirs(save_path)
             except OSError:
                 pass
-
+            env_name = args.env_name.split(":")[-1]
             torch.save([
                 actor_critic_g,
-                getattr(get_vec_normalize(envs_gail), 'ob_rms', None)
-            ], os.path.join(save_path, args.env_name + ".pt"))
+                getattr(get_vec_normalize(envs_gail), 'obs_rms', None)
+            ], os.path.join(save_path, env_name + "gail.pt"))
             torch.save([
                 actor_critic_s,
-                getattr(get_vec_normalize(envs_seed), 'ob_rms', None)
-            ], os.path.join(save_path, args.env_name + ".pt"))
+                getattr(get_vec_normalize(envs_seed), 'obs_rms', None)
+            ], os.path.join(save_path, env_name + "seed.pt"))
 
-        if j % args.log_interval == 0 and len(episode_rewards) > 1:
+        if j % args.log_interval == 0 and len(episode_rewards_g) > 1:
             total_num_steps = (j + 1) * args.num_processes * args.num_steps
             end = time.time()
+            print("GAIL")
+            print(total)
             print(
-                "Updates {}, num timesteps {}, FPS {} \n Last {} training episodes: mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}\n"
+                "Updates {}, num timesteps {}, FPS {} \n Last {} training episodes: mean/median reward {:.3f}/{:.3f}, min/max reward {:.3f}/{:.3f}\n"
                 .format(j, total_num_steps,
                         int(total_num_steps / (end - start)),
-                        len(episode_rewards), np.mean(episode_rewards),
-                        np.median(episode_rewards), np.min(episode_rewards),
-                        np.max(episode_rewards), dist_entropy_s, value_loss_s,
-                        action_loss_s))
-
+                        len(episode_rewards_g), np.mean(episode_rewards_g),
+                        np.median(episode_rewards_g), np.min(episode_rewards_g),
+                        np.max(episode_rewards_g)))
+            if j > init_gail:
+                print(episode_rewards_s)
+                print(
+                    "Updates {}, num timesteps {}, FPS {} \n Last {} training episodes: mean/median reward {:.3f}/{:.3f}, min/max reward {:.3f}/{:.3f}\n"
+                    .format(j, total_num_steps,
+                            int(total_num_steps / (end - start)),
+                            len(episode_rewards_s), np.mean(episode_rewards_s),
+                            np.median(episode_rewards_s), np.min(episode_rewards_s),
+                            np.max(episode_rewards_s)))
+            
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
             ob_rms = utils.get_vec_normalize(envs_gail).ob_rms

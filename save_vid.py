@@ -51,8 +51,9 @@ env = make_vec_envs(
 render_func = None
 
 # We need to use the same statistics for normalization as used in training
+env_name = args.env_name.split(":")[-1]
 actor_critic, ob_rms = \
-            torch.load(os.path.join(args.load_dir, args.env_name + "gail.pt"))
+            torch.load(os.path.join(args.load_dir, env_name + "gail.pt"))
 
 vec_norm = get_vec_normalize(env)
 if vec_norm is not None:
@@ -77,11 +78,11 @@ if args.env_name.find('Bullet') > -1:
             torsoId = i
 
 video_folder="trained_models/vid"
-video_length=500
+video_length=1000
 
 env = VecVideoRecorder(env, video_folder,
                        record_video_trigger=lambda x: x == 0, video_length=video_length,
-                       name_prefix="gail-agent-{}".format(args.env_name))
+                       name_prefix="gail-agent-{}".format(env_name))
 
 
 obs = env.reset()

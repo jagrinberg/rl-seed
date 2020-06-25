@@ -13,6 +13,8 @@ from stable_baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from stable_baselines.common.vec_env.vec_normalize import \
     VecNormalize as VecNormalize_
 
+from gym_minigrid.wrappers import *
+
 try:
     import dm_control2gym
 except ImportError:
@@ -34,6 +36,9 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets):
         if env_id.startswith("dm"):
             _, domain, task = env_id.split('.')
             env = dm_control2gym.make(domain_name=domain, task_name=task)
+        elif env_id.startswith("MiniGrid"):
+            env = gym.make(env_id)
+            env = ImgObsWrapper(env)
         else:
             env = gym.make(env_id)
 
@@ -56,11 +61,11 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets):
         if is_atari:
             if len(env.observation_space.shape) == 3:
                 env = wrap_deepmind(env)
-        elif len(env.observation_space.shape) == 3:
-            raise NotImplementedError(
-                "CNN models work only for atari,\n"
-                "please use a custom wrapper for a custom pixel input env.\n"
-                "See wrap_deepmind for an example.")
+        # elif len(env.observation_space.shape) == 3:
+            # raise NotImplementedError(
+                # "CNN models work only for atari,\n"
+                # "please use a custom wrapper for a custom pixel input env.\n"
+                # "See wrap_deepmind for an example.")
 
         # If the input has shape (W,H,3), wrap for PyTorch convolutions
         obs_shape = env.observation_space.shape
@@ -94,7 +99,7 @@ def make_vec_envs(env_name,
         if gamma is None:
             envs = VecNormalize(envs, norm_reward=False)
         else:
-            envs = VecNormalize(envs, gamma=gamma)
+            envs = VecNormalize(envs, norm_reward=False)
 
     envs = VecPyTorch(envs, device)
 
@@ -191,6 +196,7 @@ class VecNormalize(VecNormalize_):
         if self.obs_rms:
             if self.training and update:
                 self.obs_rms.update(obs)
+
             obs = np.clip((obs - self.obs_rms.mean) /
                           np.sqrt(self.obs_rms.var + self.epsilon),
                           -self.clip_obs, self.clip_obs)

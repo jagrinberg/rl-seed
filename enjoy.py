@@ -48,9 +48,10 @@ env = make_vec_envs(
 # Get a render function
 render_func = get_render_func(env)
 
+env_name = args.env_name.split(":")[-1]
 # We need to use the same statistics for normalization as used in training
 actor_critic, ob_rms = \
-            torch.load(os.path.join(args.load_dir, args.env_name + ".pt"))
+            torch.load(os.path.join(args.load_dir, env_name + ".pt"))
 
 vec_norm = get_vec_normalize(env)
 if vec_norm is not None:
@@ -76,7 +77,7 @@ if args.env_name.find('Bullet') > -1:
 
 
 while True:
-    print(obs)
+
     with torch.no_grad():
         value, action, _, recurrent_hidden_states = actor_critic.act(
             obs, recurrent_hidden_states, masks, deterministic=args.det)

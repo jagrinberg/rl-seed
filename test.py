@@ -1,11 +1,18 @@
 import gym
 from stable_baselines.common.vec_env import VecVideoRecorder, DummyVecEnv
 
-env_id = 'CartPole-v1'
+
+from gym_minigrid.wrappers import *
+env = gym.make('MiniGrid-Empty-8x8-v0')
+env = ImgObsWrapper(env) # Get rid of the 'mission' field
+obs = env.reset() # This now produces an RGB tensor only
+print(obs)
+
+env_id = 'MiniGrid-Empty-8x8-v0'
 video_folder = 'logs/videos/'
 video_length = 100
 
-env = DummyVecEnv([lambda: gym.make(env_id)])
+env = DummyVecEnv([lambda: ImgObsWrapper(gym.make(env_id))])
 
 obs = env.reset()
 
