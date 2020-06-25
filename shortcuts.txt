@@ -1,0 +1,15 @@
+python main.py --algo ppo --use-gae --num-steps 128 --num-processes 4 --env-name "MountainCar-v0" --use-linear-lr-decay --save-interva
+
+python enjoy.py --env-name "sparse_gym:SparseMountainCar-v0" --load-dir trained_models/ppo
+
+python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 256 --num-processes 8 --env-name "CartPole-v1" --use-linear-lr-decay --num-env-steps 2000000 --log-interval 1
+
+python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 128 --num-processes 8 --env-name "sparse_gym:SparseMountainCar-v0" --use-linear-lr-decay --num-env-steps 2000000 --log-interval 1
+
+python main.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 256 --num-processes 8 --env-name "MountainCar-v0" --use-linear-lr-decay --num-env-steps 1000000 --log-interval 1
+
+python save_vid.py --env-name "sparse_gym:SparseMountainCar-v0" --load-dir trained_models/ppo
+
+
+
+python main.py --algo ppo --use-gae --num-steps 64 --env-name "MiniGrid-Empty-8x8-v0" --use-linear-lr-decay --num-env-steps 1000000

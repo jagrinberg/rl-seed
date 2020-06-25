@@ -31,7 +31,6 @@ class FixedCategorical(torch.distributions.Categorical):
     def mode(self):
         return self.probs.argmax(dim=-1, keepdim=True)
 
-
 # Normal
 class FixedNormal(torch.distributions.Normal):
     def log_probs(self, actions):

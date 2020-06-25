@@ -19,14 +19,18 @@ class Policy(nn.Module):
         if base_kwargs is None:
             base_kwargs = {}
         if base is None:
+            print(obs_shape)
             if len(obs_shape) == 3:
-                base = CNNBase
+                if obs_shape[1] <= 10:
+                    base = CNNSmallBase
+                else:
+                    base = CNNBase
             elif len(obs_shape) == 1:
                 base = MLPBase
             else:
                 raise NotImplementedError
 
-        self.base = base(obs_shape[0], **base_kwargs)
+        self.base = base(obs_shape, **base_kwargs)
 
         if action_space.__class__.__name__ == "Discrete":
             num_outputs = action_space.n
@@ -78,7 +82,7 @@ class Policy(nn.Module):
         action_log_probs = dist.log_probs(action)
         dist_entropy = dist.entropy().mean()
 
-        return value, action_log_probs, dist_entropy, rnn_hxs
+        return value, action_log_probs, dist_entropy, dist.probs
 
 
 class NNBase(nn.Module):
@@ -169,10 +173,52 @@ class NNBase(nn.Module):
         return x, hxs
 
 #Create CNN base
+class CNNSmallBase(NNBase):
+    def __init__(self, num_inputs, recurrent=False, hidden_size=128):
+        super(CNNSmallBase, self).__init__(recurrent, hidden_size, hidden_size)
+        
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0), nn.init.calculate_gain('relu'))
+        
+        n = num_inputs[1]
+        m = num_inputs[2]
+        
+        self.image_embedding_size = ((n-1)//2-2)*((m-1)//2-2)*64
+        
+        self.main = nn.Sequential(
+            init_(nn.Conv2d(12, 16, (2, 2))),
+            nn.ReLU(),
+            nn.MaxPool2d((2, 2)),
+            init_(nn.Conv2d(16, 32, (2, 2))),
+            nn.ReLU(),
+            init_(nn.Conv2d(32, 64, (2, 2))),
+            nn.ReLU(),
+            Flatten(),
+            init_(nn.Linear(self.image_embedding_size, hidden_size)), nn.ReLU()
+        )
+
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0))
+
+        self.critic_linear = init_(nn.Linear(hidden_size, 1))
+
+        self.train()
+
+    def forward(self, inputs, rnn_hxs, masks):
+        x = self.main(inputs)
+
+        if self.is_recurrent:
+            x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
+
+        return self.critic_linear(x), x, rnn_hxs
+
+
 class CNNBase(NNBase):
     def __init__(self, num_inputs, recurrent=False, hidden_size=512):
         super(CNNBase, self).__init__(recurrent, hidden_size, hidden_size)
-
+        
+        num_inputs = num_inputs[0]
+        
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), nn.init.calculate_gain('relu'))
 
@@ -201,7 +247,9 @@ class CNNBase(NNBase):
 class MLPBase(NNBase):
     def __init__(self, num_inputs, recurrent=False, hidden_size=64):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
-
+        
+        num_inputs = num_inputs[0]
+        
         if recurrent:
             num_inputs = hidden_size
 

@@ -55,7 +55,10 @@ class SparseMountainCarEnv(gym.Env):
 
         self.force = 0.001
         self.gravity = 0.0025
-
+        
+        self.steps = 0
+        self.max_steps = 200
+        
         self.low = np.array(
             [self.min_position, -self.max_speed], dtype=np.float32
         )
@@ -78,7 +81,7 @@ class SparseMountainCarEnv(gym.Env):
 
     def step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
-
+        self.steps += 1
         position, velocity = self.state
         velocity += (action - 1) * self.force + math.cos(3 * position) * (-self.gravity)
         velocity = np.clip(velocity, -self.max_speed, self.max_speed)
@@ -90,13 +93,18 @@ class SparseMountainCarEnv(gym.Env):
         done = bool(
             position >= self.goal_position and velocity >= self.goal_velocity
         )
-        reward = -1.0
 
+        if position >= self.goal_position and velocity >= self.goal_velocity:
+            reward = 20*(1 - .9*(self.steps/self.max_steps))
+        else:
+            reward = 0
+        
         self.state = (position, velocity)
         return np.array(self.state), reward, done, {}
 
     def reset(self):
         self.state = np.array([self.np_random.uniform(low=-0.6, high=-0.4), 0])
+        self.steps = 0
         return np.array(self.state)
 
     def _height(self, xs):

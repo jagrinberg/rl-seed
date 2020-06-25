@@ -113,6 +113,7 @@ def main():
                               actor_critic.recurrent_hidden_state_size)
 
     obs = envs.reset()
+    print(obs.shape)
     rollouts.obs[0].copy_(obs)
     rollouts.to(device)
 
@@ -132,6 +133,7 @@ def main():
                 agent.optimizer.lr if args.algo == "acktr" else args.lr)
 
         for step in range(args.num_steps):
+            
             # Sample actions
             with torch.no_grad():
                 value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
@@ -189,13 +191,15 @@ def main():
                 os.makedirs(save_path)
             except OSError:
                 pass
+            env_name = args.env_name.split(":")
+            env_name = env_name[-1]
             end = ".pt"
             if args.gail:
                 end = "gail.pt"
             torch.save([
                 actor_critic,
                 getattr(utils.get_vec_normalize(envs), 'obs_rms', None)
-            ], os.path.join(save_path, args.env_name + end))
+            ], os.path.join(save_path, env_name + end))
 
         if j % args.log_interval == 0 and len(episode_rewards) > 1:
             total_num_steps = (j + 1) * args.num_processes * args.num_steps

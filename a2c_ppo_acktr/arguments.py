@@ -152,13 +152,13 @@ def get_args():
     parser.add_argument(
         '--demonstration-coef',
         type=float,
-        default=.5,
+        default=.001,
         help='weight to determine how much to stay away from demonstrations'
     )
     parser.add_argument(
         '--kl-coef',
         type=float,
-        default=.5,
+        default=.15,
         help='weight for KL divergence between policies'
     )
     args = parser.parse_args()
