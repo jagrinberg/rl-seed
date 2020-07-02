@@ -12,7 +12,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from a2c_ppo_acktr import algo, utils
-from a2c_ppo_acktr.algo import gail
+from a2c_ppo_acktr.algo import gail, behave
 from a2c_ppo_acktr.arguments import get_args
 from a2c_ppo_acktr.envs import make_vec_envs
 from a2c_ppo_acktr.model import Policy
@@ -77,6 +77,29 @@ def main():
     elif args.algo == 'acktr':
         agent = algo.A2C_ACKTR(
             actor_critic, args.value_loss_coef, args.entropy_coef, acktr=True)
+
+    if args.behave:
+        file_name = os.path.join(
+            args.gail_experts_dir, "trajs_{}.pt".format(
+                args.env_name.split('-')[0].lower()))
+
+        #Store dataset
+        expert_dataset = gail.ExpertDataset(
+            file_name, num_trajectories=5, subsample_frequency=2)
+        drop_last = len(expert_dataset) > args.gail_batch_size
+        gail_train_loader = torch.utils.data.DataLoader(
+            dataset=expert_dataset,
+            batch_size=args.gail_batch_size,
+            shuffle=True,
+            drop_last=drop_last)
+        
+        optim = optim.Adam(actor_critic.parameters(), lr=args.lr, eps=args.eps)
+
+        for i in range(25):
+            optim.zero_grad()
+            loss = behave.behavioral_cloning(actor_critic, gail_train_loader, device, obsfilt=utils.get_vec_normalize(envs)._obfilt)
+            loss.backward()
+            optim.step()
 
     if args.gail:
         assert len(envs.observation_space.shape) == 1

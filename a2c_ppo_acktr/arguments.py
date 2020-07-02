@@ -8,6 +8,11 @@ def get_args():
     parser.add_argument(
         '--algo', default='a2c', help='algorithm to use: a2c | ppo | acktr')
     parser.add_argument(
+        '--behave',
+        action='store_true',
+        default=False,
+        help='initialize with behavioral cloning')
+    parser.add_argument(
         '--gail',
         action='store_true',
         default=False,
