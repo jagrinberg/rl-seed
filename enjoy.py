@@ -6,6 +6,8 @@ import sys
 import numpy as np
 import torch
 
+import pybulletgym
+
 from a2c_ppo_acktr.envs import VecPyTorch, make_vec_envs
 from a2c_ppo_acktr.utils import get_render_func, get_vec_normalize
 
@@ -48,6 +50,7 @@ env = make_vec_envs(
 # Get a render function
 render_func = get_render_func(env)
 
+
 env_name = args.env_name.split(":")[-1]
 # We need to use the same statistics for normalization as used in training
 actor_critic, ob_rms = \
@@ -62,10 +65,11 @@ recurrent_hidden_states = torch.zeros(1,
                                       actor_critic.recurrent_hidden_state_size)
 masks = torch.zeros(1, 1)
 
-obs = env.reset()
-
 if render_func is not None:
+    print("HI")
     render_func('human')
+
+obs = env.reset()
 
 if args.env_name.find('Bullet') > -1:
     import pybullet as p
@@ -83,7 +87,7 @@ while True:
             obs, recurrent_hidden_states, masks, deterministic=args.det)
 
     # Obser reward and next obs
-    obs, reward, done, _ = env.step(action.squeeze(0))
+    obs, reward, done, _ = env.step(action)
     
     if done:
         print(done)
@@ -96,6 +100,6 @@ while True:
             yaw = 0
             humanPos, humanOrn = p.getBasePositionAndOrientation(torsoId)
             p.resetDebugVisualizerCamera(distance, yaw, -20, humanPos)
-
+    
     if render_func is not None:
         render_func('human')

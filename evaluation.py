@@ -13,7 +13,7 @@ def evaluate(actor_critic, ob_rms, env_name, seed, num_processes, eval_log_dir,
     vec_norm = utils.get_vec_normalize(eval_envs)
     if vec_norm is not None:
         vec_norm.eval()
-        vec_norm.ob_rms = ob_rms
+        vec_norm.obs_rms = ob_rms
 
     eval_episode_rewards = []
 

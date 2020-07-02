@@ -4,6 +4,7 @@ import os
 import time
 from collections import deque
 
+import pybulletgym
 import gym
 import numpy as np
 import torch
@@ -163,7 +164,7 @@ def main():
                     rollouts.obs[step], rollouts.recurrent_hidden_states[step],
                     rollouts.masks[step])
             # Obser reward and next obs
-            obs, reward, done, infos = envs.step(torch.squeeze(action))
+            obs, reward, done, infos = envs.step(action)
 
             for info in infos:
                 if 'episode' in info.keys():
@@ -240,7 +241,7 @@ def main():
 
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
-            ob_rms = utils.get_vec_normalize(envs).ob_rms
+            ob_rms = utils.get_vec_normalize(envs).obs_rms
             evaluate(actor_critic, ob_rms, args.env_name, args.seed,
                      args.num_processes, eval_log_dir, device)
 
