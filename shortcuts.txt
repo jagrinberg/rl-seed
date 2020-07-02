@@ -1,10 +1,10 @@
-python main.py --algo ppo --use-gae --num-steps 128 --num-processes 4 --env-name "MountainCar-v0" --use-linear-lr-decay --save-interva
+python main.py --algo ppo --use-gae --num-steps 128 --num-processes 4 --env-name "LunarLanderContinuous-v2" --use-linear-lr-decay --eval-interval 5
 
 python enjoy.py --env-name "sparse_gym:SparseMountainCar-v0" --load-dir trained_models/ppo
 
 python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 256 --num-processes 8 --env-name "CartPole-v1" --use-linear-lr-decay --num-env-steps 2000000 --log-interval 1
 
-python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 128 --num-processes 8 --env-name "sparse_gym:SparseMountainCar-v0" --use-linear-lr-decay --num-env-steps 2000000 --log-interval 1
+python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 256 --num-processes 8 --env-name "sparse_gym:SparseMountainCar-v0" --use-linear-lr-decay --num-env-steps 2000000 --log-interval 1
 
 python main.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 256 --num-processes 8 --env-name "MountainCar-v0" --use-linear-lr-decay --num-env-steps 1000000 --log-interval 1
 
@@ -13,3 +13,13 @@ python save_vid.py --env-name "sparse_gym:SparseMountainCar-v0" --load-dir train
 
 
 python main.py --algo ppo --use-gae --num-steps 64 --env-name "MiniGrid-Empty-8x8-v0" --use-linear-lr-decay --num-env-steps 1000000
+
+python enjoy.py --env-name "MiniGrid-Empty-8x8-v0" --load-dir trained_models/ppo
+
+python enjoy.py --env-name "LunarLanderContinuous-v2" --load-dir trained_models/ppo
+
+python main.py --algo ppo --use-gae --num-steps 1024 --num-processes 4 --env-name "HumanoidPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 5 --log-dir log
+
+python enjoy.py --env-name "HumanoidPyBulletEnv-v0" --load-dir trained_models/ppo
+
+python main.py --env-name "HumanoidPyBulletEnv-v0" --algo ppo --use-gae --log-interval 1 --num-steps 2048 --num-processes 1 --lr 3e-4 --entropy-coef 0 --eval-interval 5 --log-dir log/human --value-loss-coef 0.5 --ppo-epoch 10 --num-mini-batch 32 --gamma 0.99 --gae-lambda 0.95 --num-env-steps 10000000 --use-linear-lr-decay --use-proper-time-limits

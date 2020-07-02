@@ -52,7 +52,7 @@ def main():
     envs_seed = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, False)
     
-    init_gail = 300
+    init_gail = 25
     update_freq = 5
     
     #Create base policy
@@ -133,7 +133,7 @@ def main():
         #Get filename based on environment
         file_name = os.path.join(
             args.gail_experts_dir, "trajs_{}.pt".format(
-                "cartpole"))
+                "mountaincar"))
         #Store dataset
         expert_dataset = gail.ExpertDataset(
             file_name, num_trajectories=4, subsample_frequency=2)
@@ -263,6 +263,7 @@ def main():
                         rollouts_s.obs[step], rollouts_s.actions[step], args.gamma,
                         rollouts_s.masks[step])
                     r_s = torch.clamp(r_s, -5, 5)
+                    r_s = 0
                     rollouts_s.rewards[step]= -args.demonstration_coef*r_s+rollouts_s.rewards[step]
             total = total/args.num_steps/args.num_processes
         
@@ -327,9 +328,9 @@ def main():
                             np.median(episode_rewards_s), np.min(episode_rewards_s),
                             np.max(episode_rewards_s)))
             
-        if (args.eval_interval is not None and len(episode_rewards) > 1
+        if (args.eval_interval is not None and len(episode_rewards_s) > 1
                 and j % args.eval_interval == 0):
-            ob_rms = utils.get_vec_normalize(envs_gail).ob_rms
+            ob_rms = utils.get_vec_normalize(envs_gail).obs_rms
             evaluate(actor_critic_s, ob_rms, args.env_name, args.seed,
                      args.num_processes, eval_log_dir, device)
 

@@ -152,7 +152,7 @@ def get_args():
     parser.add_argument(
         '--demonstration-coef',
         type=float,
-        default=.001,
+        default=.05,
         help='weight to determine how much to stay away from demonstrations'
     )
     parser.add_argument(
