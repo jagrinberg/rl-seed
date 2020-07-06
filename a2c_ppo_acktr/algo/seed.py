@@ -80,8 +80,13 @@ class SEED():
                         obs_batch, recurrent_hidden_states_batch, masks_batch,
                         actions_batch)
 
-                x = nn.KLDivLoss()(torch.log(pro),pro_g)
-                cur = x.item()
+                if self.actor_critic.cat == True:
+                    x = nn.KLDivLoss()(torch.log(pro),pro_g)
+                    cur = x.item()
+                else:
+                    x = nn.KLDivLoss()(action_log_probs,torch.exp(action_log_probs_g))
+                    cur = x.item()
+                
 
                 loss = self.log_kl*(self.target_kl - cur)
                 self.kl_optim.zero_grad()
