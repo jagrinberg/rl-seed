@@ -79,9 +79,12 @@ class Discriminator(nn.Module):
             expert_state = obsfilt(expert_state.numpy(), update=False)
             expert_state = torch.FloatTensor(expert_state).to(self.device)
             expert_action = expert_action.to(self.device)
+
             expert_d = self.trunk(
                 torch.cat([expert_state, expert_action], dim=1))
-
+            
+            
+            
             expert_loss = F.binary_cross_entropy_with_logits(
                 expert_d,
                 torch.ones(expert_d.size()).to(self.device))
@@ -108,8 +111,8 @@ class Discriminator(nn.Module):
                 action = self.create_action(action).to(self.device)
             d = self.trunk(torch.cat([state, action], dim=1))
             s = torch.sigmoid(d)
-            reward = s.log() - (1 - s).log()
-            #reward = -(1 - s).log()
+            # reward = s.log() - (1 - s).log()
+            reward = -(1 - s).log()
             if self.returns is None:
                 self.returns = reward.clone()
 

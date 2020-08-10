@@ -5,6 +5,7 @@ import sys
 
 import numpy as np
 import torch
+import pybulletgym
 
 from a2c_ppo_acktr.envs import VecPyTorch, make_vec_envs
 from a2c_ppo_acktr.utils import get_render_func, get_vec_normalize
@@ -82,22 +83,33 @@ if args.env_name.find('Bullet') > -1:
 
 count = 0
 
-max_t = 200
+max_t = 1000
 rewards = np.zeros((args.num_traj,max_t))
 lengths = np.zeros((args.num_traj))
 states = np.zeros((args.num_traj,max_t,env.observation_space.shape[0]))
-actions = np.zeros((args.num_traj,max_t,env.action_space.n))
+
 col = 0
 
+cont = False
+
+if env.action_space.__class__.__name__ != "Discrete":
+    cont = True
+    actions = np.zeros((args.num_traj,max_t,env.action_space.shape[0]))
+else:
+    actions = np.zeros((args.num_traj,max_t,env.action_space.n))
+    
 while count < args.num_traj:
     with torch.no_grad():
         value, action, _, recurrent_hidden_states = actor_critic.act(
             obs, recurrent_hidden_states, masks, deterministic=args.det)
     # Obser reward and next obs
     states[count][col] = (get_vec_normalize(env).get_original_obs())
-    obs, reward, done, _ = env.step(action.squeeze(0))
+    obs, reward, done, _ = env.step(action)
     rewards[count][col] = reward
-    actions[count][col][action.squeeze()] = 1
+    if cont:
+        actions[count][col] = action.cpu().numpy()
+    else:
+        actions[count][col][action.squeeze()] = 1
     masks.fill_(0.0 if done else 1.0)
     col+=1
     if done:
@@ -115,7 +127,6 @@ while count < args.num_traj:
     if render_func is not None:
         render_func('human')
 states = torch.from_numpy(states).float()
-print(actions)
 actions = torch.from_numpy(actions).float()
 rewards = torch.from_numpy(rewards).float()
 lens = torch.from_numpy(lengths).long()
@@ -127,5 +138,5 @@ data = {
         'lengths': lens
     }
 
-path = "trajs_{}.pt".format(args.env_name.split('-')[0].lower())
+path = "gail_experts/trajs_{}.pt".format(args.env_name.split('-')[0].lower())
 torch.save(data, path)
