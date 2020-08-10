@@ -4,6 +4,7 @@ import os
 import time
 from collections import deque
 
+import pybulletgym
 import gym
 import numpy as np
 import torch
@@ -47,12 +48,15 @@ def main():
     args.num_processes = int(args.num_processes/2)
     
     envs_gail = make_vec_envs(args.env_name, args.seed, args.num_processes,
-                         args.gamma, args.log_dir, device, False)
+                         args.gamma, '/tmp/gym/', device, False)
 
     envs_seed = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, False)
     
-    init_gail = 25
+    if args.train_gail:
+        init_gail = 29
+    else:
+        init_gail = -1
     update_freq = 5
     
     #Create base policy
@@ -68,6 +72,19 @@ def main():
         base_kwargs={'recurrent': args.recurrent_policy})
     actor_critic_s.to(device)
     
+    args.env_name = "InvertedPendulumPyBulletEnv-v0"
+    
+    if not(args.train_gail):
+        actor_critic_g, ob_rms = \
+                torch.load(os.path.join(args.gail_agent_dir, args.env_name + "gail.pt"))
+
+        vec_norm = get_vec_normalize(envs_gail)
+        vec_norm2 = get_vec_normalize(envs_seed)
+        if vec_norm is not None:
+            vec_norm.eval()
+            vec_norm2.eval()
+            vec_norm.obs_rms = ob_rms
+            vec_norm2.obs_rms = ob_rms
 
     #Set algorithm based on input
     if args.algo == 'a2c':
@@ -126,14 +143,19 @@ def main():
             space = acti
         else:
             acti = envs_gail.action_space.shape[0]
-            
-        discr = gail.Discriminator(
-            envs_gail.observation_space.shape[0] + acti, 100,
-            device, space)
+        
+        print(acti)
+        if args.train_gail:
+            discr = gail.Discriminator(
+                envs_gail.observation_space.shape[0] + acti, 100,
+                device, space)
+        else:
+            discr = torch.load(os.path.join(args.gail_agent_dir, args.env_name + "discr.pt"))[0]
+            print(discr)
         #Get filename based on environment
         file_name = os.path.join(
             args.gail_experts_dir, "trajs_{}.pt".format(
-                "mountaincar"))
+                "mountaincarcontinuous"))
         #Store dataset
         expert_dataset = gail.ExpertDataset(
             file_name, num_trajectories=4, subsample_frequency=2)
@@ -187,7 +209,7 @@ def main():
         for step in range(args.num_steps):
             # Sample actions
             with torch.no_grad():
-                if j < init_gail or j%update_freq==0:
+                if (j < init_gail or j%update_freq==0) and args.train_gail:
                     value_g, action_g, action_log_prob_g, recurrent_hidden_states_g = actor_critic_g.act(
                         rollouts_g.obs[step], rollouts_g.recurrent_hidden_states[step],
                         rollouts_g.masks[step])
@@ -196,8 +218,10 @@ def main():
                         rollouts_s.obs[step], rollouts_s.recurrent_hidden_states[step],
                         rollouts_s.masks[step])
             # Obser reward and next obs
-            if j < init_gail or j%update_freq==0:
-                obs_g, reward_g, done_g, infos_g = envs_gail.step(torch.squeeze(action_g))
+            if (j < init_gail or j%update_freq==0) and args.train_gail:
+                # obs_g, reward_g, done_g, infos_g = envs_gail.step(torch.squeeze(action_g))
+                obs_g, reward_g, done_g, infos_g = envs_gail.step(action_g)
+                
                 for info in infos_g:
                     if 'episode' in info.keys():
                         episode_rewards_g.append(info['episode']['r'])
@@ -213,8 +237,9 @@ def main():
                                 action_log_prob_g, value_g, reward_g, masks_g, bad_masks_g)
             
             if j > init_gail:
-                obs_s, reward_s, done_s, infos_s = envs_seed.step(torch.squeeze(action_s))
-
+                # obs_s, reward_s, done_s, infos_s = envs_seed.step(torch.squeeze(action_s))
+                obs_s, reward_s, done_s, infos_s = envs_seed.step(action_s)
+                
                 for info in infos_s:
                     if 'episode' in info.keys():
                         episode_rewards_s.append(info['episode']['r'])
@@ -231,7 +256,7 @@ def main():
 
 
         with torch.no_grad():
-            if j < init_gail or j%update_freq==0:
+            if (j < init_gail or j%update_freq==0) and args.train_gail:
                 next_value_g = actor_critic_g.get_value(
                     rollouts_g.obs[-1], rollouts_g.recurrent_hidden_states[-1],
                     rollouts_g.masks[-1]).detach()
@@ -247,27 +272,29 @@ def main():
             gail_epoch = args.gail_epoch
             if j < 10:
                 gail_epoch = 100  # Warm up
-            if j < init_gail or j%update_freq == 0:
+            if (j < init_gail or j%update_freq==0) and args.train_gail:
                 for _ in range(gail_epoch):
                     discr.update(gail_train_loader, rollouts_g,
                                  utils.get_vec_normalize(envs_gail)._obfilt)
 
             for step in range(args.num_steps):
-                if j < init_gail or j%update_freq == 0:
+                if (j < init_gail or j%update_freq==0) and args.train_gail:
                     rollouts_g.rewards[step], h = discr.predict_reward(
                         rollouts_g.obs[step], rollouts_g.actions[step], args.gamma,
                         rollouts_g.masks[step])
                     total += h
                 if j > init_gail:
-                    r_s, h = discr.predict_reward(
-                        rollouts_s.obs[step], rollouts_s.actions[step], args.gamma,
-                        rollouts_s.masks[step])
-                    r_s = torch.clamp(r_s, -5, 5)
-                    r_s = 0
-                    rollouts_s.rewards[step]= -args.demonstration_coef*r_s+rollouts_s.rewards[step]
+                    if j < num_updates/2:
+                        r_s, h = discr.predict_reward(
+                            rollouts_s.obs[step], rollouts_s.actions[step], args.gamma,
+                            rollouts_s.masks[step])
+                        r_s = torch.clamp(r_s, -5, 5)
+                        rollouts_s.rewards[step]= -args.demonstration_coef*2*(.5-j/num_updates)*r_s+rollouts_s.rewards[step]
+                    else:
+                        rollouts_s.rewards[step]= rollouts_s.rewards[step]
             total = total/args.num_steps/args.num_processes
         
-        if j < init_gail or j%update_freq == 0:
+        if (j < init_gail or j%update_freq==0) and args.train_gail:
             rollouts_g.compute_returns(next_value_g, args.use_gae, args.gamma,
                                      args.gae_lambda, args.use_proper_time_limits)
         if j > init_gail:
@@ -280,7 +307,7 @@ def main():
         # else:
             # value_loss_s, action_loss_s, dist_entropy_s = agent_s.update(rollouts_s)
             # rollouts_s.after_update()
-        if j < init_gail or j%update_freq==0:
+        if (j < init_gail or j%update_freq==0) and args.train_gail:
             value_loss_g, action_loss_g, dist_entropy_g = agent_g.update(rollouts_g)
             rollouts_g.after_update()
         
@@ -297,27 +324,27 @@ def main():
             except OSError:
                 pass
             env_name = args.env_name.split(":")[-1]
-            torch.save([
-                actor_critic_g,
-                getattr(get_vec_normalize(envs_gail), 'obs_rms', None)
-            ], os.path.join(save_path, env_name + "gail.pt"))
+            # torch.save([
+                # actor_critic_g,
+                # getattr(get_vec_normalize(envs_gail), 'obs_rms', None)
+            # ], os.path.join(save_path, env_name + "gail.pt"))
             torch.save([
                 actor_critic_s,
                 getattr(get_vec_normalize(envs_seed), 'obs_rms', None)
-            ], os.path.join(save_path, env_name + "seed.pt"))
+            ], os.path.join(save_path, env_name + "combine_seed.pt"))
 
-        if j % args.log_interval == 0 and len(episode_rewards_g) > 1:
+        if j % args.log_interval == 0 and len(episode_rewards_s) > 1:
             total_num_steps = (j + 1) * args.num_processes * args.num_steps
             end = time.time()
-            print("GAIL")
-            print(total)
-            print(
-                "Updates {}, num timesteps {}, FPS {} \n Last {} training episodes: mean/median reward {:.3f}/{:.3f}, min/max reward {:.3f}/{:.3f}\n"
-                .format(j, total_num_steps,
-                        int(total_num_steps / (end - start)),
-                        len(episode_rewards_g), np.mean(episode_rewards_g),
-                        np.median(episode_rewards_g), np.min(episode_rewards_g),
-                        np.max(episode_rewards_g)))
+            # print("GAIL")
+            # print(total)
+            # print(
+                # "Updates {}, num timesteps {}, FPS {} \n Last {} training episodes: mean/median reward {:.3f}/{:.3f}, min/max reward {:.3f}/{:.3f}\n"
+                # .format(j, total_num_steps,
+                        # int(total_num_steps / (end - start)),
+                        # len(episode_rewards_g), np.mean(episode_rewards_g),
+                        # np.median(episode_rewards_g), np.min(episode_rewards_g),
+                        # np.max(episode_rewards_g)))
             if j > init_gail:
                 print(episode_rewards_s)
                 print(
@@ -327,12 +354,13 @@ def main():
                             len(episode_rewards_s), np.mean(episode_rewards_s),
                             np.median(episode_rewards_s), np.min(episode_rewards_s),
                             np.max(episode_rewards_s)))
-            
+        num = 2*args.num_processes
+        args.env_name = "InvertedPendulumSwingupPyBulletEnv-v0"
         if (args.eval_interval is not None and len(episode_rewards_s) > 1
                 and j % args.eval_interval == 0):
             ob_rms = utils.get_vec_normalize(envs_gail).obs_rms
             evaluate(actor_critic_s, ob_rms, args.env_name, args.seed,
-                     args.num_processes, eval_log_dir, device)
+                     num, eval_log_dir, device)
 
 
 if __name__ == "__main__":

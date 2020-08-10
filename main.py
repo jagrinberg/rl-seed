@@ -80,11 +80,11 @@ def main():
             actor_critic, args.value_loss_coef, args.entropy_coef, acktr=True)
 
     if args.behave:
-        # file_name = os.path.join(
-            # args.gail_experts_dir, "trajs_{}.pt".format(
-                # args.env_name.split('-')[0].lower()))
         file_name = os.path.join(
-            args.gail_experts_dir, "trajs_mountaincar.pt")
+            args.gail_experts_dir, "trajs_{}.pt".format(
+                args.env_name.split('-')[0].lower()))
+        # file_name = os.path.join(
+            # args.gail_experts_dir, "trajs_mountaincar.pt")
         #Store dataset
         expert_dataset = gail.ExpertDataset(
             file_name, num_trajectories=5, subsample_frequency=2)
@@ -165,7 +165,7 @@ def main():
                     rollouts.obs[step], rollouts.recurrent_hidden_states[step],
                     rollouts.masks[step])
             # Obser reward and next obs
-            obs, reward, done, infos = envs.step(torch.squeeze(action))
+            obs, reward, done, infos = envs.step(action)
 
             for info in infos:
                 if 'episode' in info.keys():
@@ -221,6 +221,7 @@ def main():
             end = ".pt"
             if args.gail:
                 end = "gail.pt"
+                torch.save([discr], os.path.join(save_path, env_name + "discr.pt"))
             torch.save([
                 actor_critic,
                 getattr(utils.get_vec_normalize(envs), 'obs_rms', None)

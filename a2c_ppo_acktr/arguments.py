@@ -71,7 +71,7 @@ def get_args():
         default=0.5,
         help='max norm of gradients (default: 0.5)')
     parser.add_argument(
-        '--seed', type=int, default=1, help='random seed (default: 1)')
+        '--seed', type=int, default=2, help='random seed (default: 1)')
     parser.add_argument(
         '--cuda-deterministic',
         action='store_true',
@@ -157,7 +157,7 @@ def get_args():
     parser.add_argument(
         '--demonstration-coef',
         type=float,
-        default=.05,
+        default=.2,
         help='weight to determine how much to stay away from demonstrations'
     )
     parser.add_argument(
@@ -166,6 +166,15 @@ def get_args():
         default=.15,
         help='weight for KL divergence between policies'
     )
+    parser.add_argument(
+        '--gail-agent-dir',
+        default=None,
+        help='directory to save agent logs (default: ./trained_models/)')
+    parser.add_argument(
+        '--train-gail',
+        action='store_true',
+        default=False,
+        help='use a linear schedule on the learning rate')
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

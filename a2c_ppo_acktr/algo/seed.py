@@ -27,7 +27,7 @@ class SEED():
         self.log_kl = torch.zeros(
                 1, requires_grad=True, device='cuda')
         
-        self.target_kl = .1
+        self.target_kl = 0
         
         self.kl_coef = self.log_kl.exp()/10
         self.kl_optim = optim.Adam([self.log_kl], lr=lr)
@@ -75,25 +75,30 @@ class SEED():
                     obs_batch, recurrent_hidden_states_batch, masks_batch,
                     actions_batch)
                 
-                with torch.no_grad():
-                    values_g, action_log_probs_g, dist_entropy_g, pro_g = self.gail_learner.evaluate_actions(
-                        obs_batch, recurrent_hidden_states_batch, masks_batch,
-                        actions_batch)
+                if self.kl_coef>.000001 and (e==0 or e==self.ppo_epoch-1):
+                    with torch.no_grad():
+                        values_g, action_log_probs_g, dist_entropy_g, pro_g = self.gail_learner.evaluate_actions(
+                            obs_batch, recurrent_hidden_states_batch, masks_batch,
+                            actions_batch)
 
-                if self.actor_critic.cat == True:
-                    x = nn.KLDivLoss()(torch.log(pro),pro_g)
-                    cur = x.item()
+                    if self.actor_critic.cat == True:
+                        x = nn.KLDivLoss()(torch.log(pro),pro_g)
+                        cur = x.item()
+                    else:
+                        x = calc_kl(pro_g[0],pro_g[1],pro[0],pro[1])
+                        cur = x.item()
+                    
+                    
+                    # print(cur)
+                    loss = self.log_kl*(self.target_kl - cur)
+                    self.kl_optim.zero_grad()
+                    loss.backward()
+                    self.kl_optim.step()
+                    self.kl_coef = self.log_kl.exp()/10
+                    
                 else:
-                    x = nn.KLDivLoss()(action_log_probs,torch.exp(action_log_probs_g))
-                    cur = x.item()
-                
-
-                loss = self.log_kl*(self.target_kl - cur)
-                self.kl_optim.zero_grad()
-                loss.backward()
-                self.kl_optim.step()
-                self.kl_coef = self.log_kl.exp()/10
-                
+                    self.kl_coef=0
+               
                 
                 ratio = torch.exp(action_log_probs -
                                   old_action_log_probs_batch)
@@ -113,9 +118,13 @@ class SEED():
                 else:
                     value_loss = 0.5 * (return_batch - values).pow(2).mean()
                 self.optimizer.zero_grad()
-                (value_loss * self.value_loss_coef + action_loss -
-                    dist_entropy * self.entropy_coef + 
-                    self.kl_coef * x).backward()
+                if self.kl_coef>.000001 and (e==0 or e==self.ppo_epoch-1):
+                    (value_loss * self.value_loss_coef + action_loss -
+                        dist_entropy * self.entropy_coef + 
+                        self.kl_coef * x).backward()
+                else:
+                    (value_loss * self.value_loss_coef + action_loss -
+                        dist_entropy * self.entropy_coef).backward()
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                          self.max_grad_norm)
                 self.optimizer.step()
@@ -126,9 +135,14 @@ class SEED():
 
         num_updates = self.ppo_epoch * self.num_mini_batch
         print(self.kl_coef)
-        self.target_kl += .0005
+        self.target_kl += .001
         value_loss_epoch /= num_updates
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
 
         return value_loss_epoch, action_loss_epoch, dist_entropy_epoch
+
+def calc_kl(mean1, stddev1, mean2, stddev2):
+    ans = torch.log(stddev2/stddev1)-.5+(torch.pow(stddev1, 2)+torch.pow(mean1-mean2, 2))/(2*torch.pow(stddev2, 2))
+    ans = torch.mean(ans)
+    return ans

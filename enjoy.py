@@ -34,6 +34,17 @@ parser.add_argument(
     action='store_true',
     default=False,
     help='whether to use a non-deterministic policy')
+parser.add_argument(
+    '--gail',
+    action='store_true',
+    default=False,
+    help='do imitation learning with gail')
+parser.add_argument(
+    '--seeded',
+    action='store_true',
+    default=False,
+    help='seed')
+    
 args = parser.parse_args()
 
 args.det = not args.non_det
@@ -53,8 +64,15 @@ render_func = get_render_func(env)
 
 env_name = args.env_name.split(":")[-1]
 # We need to use the same statistics for normalization as used in training
+end = ".pt"
+if args.gail:
+    end = "gail.pt"
+    
+if args.seeded:
+    end = "seed.pt"
+
 actor_critic, ob_rms = \
-            torch.load(os.path.join(args.load_dir, env_name + ".pt"))
+            torch.load(os.path.join(args.load_dir, env_name + end))
 
 vec_norm = get_vec_normalize(env)
 if vec_norm is not None:
