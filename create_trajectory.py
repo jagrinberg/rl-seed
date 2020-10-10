@@ -38,6 +38,10 @@ parser.add_argument(
     type=int,
     default=10,
     help='number of trajectories to save (default: 10')
+parser.add_argument(
+    '--name',
+    default="",
+    help="additional name")
 args = parser.parse_args()
 
 args.det = not args.non_det
@@ -57,7 +61,7 @@ render_func = get_render_func(env)
 
 # We need to use the same statistics for normalization as used in training
 actor_critic, ob_rms = \
-            torch.load(os.path.join(args.load_dir, args.env_name + ".pt"))
+            torch.load(os.path.join(args.load_dir, args.env_name + args.name+".pt"))
 
 vec_norm = get_vec_normalize(env)
 if vec_norm is not None:

@@ -166,7 +166,7 @@ def main():
                     rollouts.masks[step])
             # Obser reward and next obs
             obs, reward, done, infos = envs.step(action)
-
+                    
             for info in infos:
                 if 'episode' in info.keys():
                     episode_rewards.append(info['episode']['r'])
@@ -241,11 +241,28 @@ def main():
             print("GAIL")
             print(total)
 
-        if (args.eval_interval is not None and len(episode_rewards) > 1
-                and j % args.eval_interval == 0):
+        if (args.eval_interval == 0):
             ob_rms = utils.get_vec_normalize(envs).obs_rms
             evaluate(actor_critic, ob_rms, args.env_name, args.seed,
                      args.num_processes, eval_log_dir, device)
+        
+        # if len(episode_rewards) > 1 and np.mean(episode_rewards) > 400:
+            # save_path = os.path.join(args.save_dir, args.algo)
+            # try:
+                # os.makedirs(save_path)
+            # except OSError:
+                # pass
+            # env_name = args.env_name.split(":")
+            # env_name = env_name[-1]
+            # end = ".pt"
+            # if args.gail:
+                # end = "gail.pt"
+                # torch.save([discr], os.path.join(save_path, env_name + "discr.pt"))
+            # torch.save([
+                # actor_critic,
+                # getattr(utils.get_vec_normalize(envs), 'obs_rms', None)
+            # ], os.path.join(save_path, env_name + end))
+            # break
 
 
 if __name__ == "__main__":

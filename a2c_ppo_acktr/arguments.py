@@ -13,6 +13,11 @@ def get_args():
         default=False,
         help='initialize with behavioral cloning')
     parser.add_argument(
+        '--i',
+        type=int,
+        default=None,
+        help='iteration number')
+    parser.add_argument(
         '--gail',
         action='store_true',
         default=False,

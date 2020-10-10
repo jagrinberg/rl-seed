@@ -116,9 +116,30 @@ class Discriminator(nn.Module):
             if self.returns is None:
                 self.returns = reward.clone()
 
-            if update_rms:
-                self.returns = self.returns * masks * gamma + reward
-                self.ret_rms.update(self.returns.cpu().numpy())
+            # if update_rms:
+                # self.returns = self.returns * masks * gamma + reward
+                # self.ret_rms.update(self.returns.cpu().numpy())
+
+            #return reward / np.sqrt(self.ret_rms.var[0] + 1e-8)
+            return reward, torch.sum(s).item()
+    
+    def predict_reward_seed(self, state, action, gamma, masks, obsfilt, update_rms=True):
+        with torch.no_grad():
+            self.eval()
+            if self.action_dim != None:
+                action = self.create_action(action).to(self.device)
+            state = obsfilt(state.numpy())
+            state = torch.FloatTensor(state).to(self.device)
+            d = self.trunk(torch.cat([state, action], dim=1))
+            s = torch.sigmoid(d)
+            # reward = s.log() - (1 - s).log()
+            reward = -(1 - s).log()
+            if self.returns is None:
+                self.returns = reward.clone()
+
+            # if update_rms:
+                # self.returns = self.returns * masks * gamma + reward
+                # self.ret_rms.update(self.returns.cpu().numpy())
 
             #return reward / np.sqrt(self.ret_rms.var[0] + 1e-8)
             return reward, torch.sum(s).item()
