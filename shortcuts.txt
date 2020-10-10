@@ -60,7 +60,7 @@ python main.py --algo ppo --use-gae --num-steps 1024 --num-processes 2 --env-nam
 
 python enjoy.py --env-name "ThrowerPyBulletEnv-v0" --load-dir trained_models/ppo
 
-python main.py --algo ppo --use-gae --num-steps 512 --num-processes 2 --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/invertswing --log-interval 1 --num-env-steps 1000000
+python main.py --algo ppo --use-gae --num-steps 512 --num-processes 2 --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/invertswingsub --log-interval 1 --num-env-steps 1000000
 
 python enjoy.py --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --load-dir trained_models/ppo
 
@@ -77,6 +77,38 @@ python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts -
 python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 512 --num-processes 2 --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/isseedcomb.5 --gail-agent-dir trained_models/ppo --log-interval 1 --num-env-steps 1000000 --demonstration-coef .25
 
 python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 512 --num-processes 2 --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/isseedcomb.25 --gail-agent-dir trained_models/ppo --log-interval 1 --num-env-steps 1000000 --demonstration-coef .25
+
+python main.py --algo ppo --use-gae --num-steps 2048 --num-processes 2 --env-name "HalfCheetahBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/cheetah --log-interval 1 --num-env-steps 10000000
+
+python main.py --algo ppo --use-gae  --gail --gail-experts-dir gail_experts --num-steps 2048 --num-processes 2 --env-name "HalfCheetahBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/cheetahgail --log-interval 1 --num-env-steps 10000000
+
+python main.py --algo ppo --use-gae --num-steps 512 --num-processes 2 --env-name "InvertedDoublePendulumPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/invertdouble --log-interval 1 --num-env-steps 1000000
+
+python main.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 2048 --num-processes 2 --env-name "InvertedDoublePendulumPyBulletEnv-v0" --use-linear-lr-decay --log-interval 1 --log-dir log/invertdoublegail --eval-interval 50 --num-env-steps 1000000
+
+python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 512 --num-processes 2 --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/invPendSwingOpt --gail-agent-dir final_models --log-interval 1 --num-env-steps 1000000 --demonstration-coef .25
+
+python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 512 --num-processes 2 --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/invswingsubseed --gail-agent-dir final_models --log-interval 1 --num-env-steps 1000000 --demonstration-coef .25
+
+python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 512 --num-processes 2 --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --eval-interval 50 --log-dir log/invswingpartseed --gail-agent-dir final_models --log-interval 1 --num-env-steps 1000000 --demonstration-coef .25 --seed 3
+
+python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 2048 --num-processes 2 --env-name "HalfCheetahBulletEnv-v0" --use-linear-decay --eval-interval 50 --log-dir log/cheetahseed --gail-agent-dir final_models --log-interval 1 --num-env-steps 10000000 --demonstration-coef .2 --seed 3
+
+python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 2048 --num-processes 2 --env-name "InvertedDoublePendulumPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/invdoubleseed --gail-agent-dir final_models --log-interval 1 --num-env-steps 1000000 --demonstration-coef .003 --seed 1
+
+python main.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 2048 --num-processes 2 --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/invertswinggail --log-interval 1 --num-env-steps 1000000
+
+python main.py --algo ppo --use-gae --num-steps 2048 --num-processes 2 --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/subinvertswing --log-interval 1 --num-env-steps 1000000
+
+python create_trajectory.py --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --load-dir trained_models/ppo
+
+python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 2048 --num-processes 2 --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/subinvpendswingseed --gail-agent-dir final_models --log-interval 1 --num-env-steps 1000000 --demonstration-coef .03
+
+python main.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 2048 --num-processes 2 --env-name "InvertedPendulumSwingupPyBulletEnv-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/subinvertswinggail --log-interval 1 --num-env-steps 1000000
+
+
+
+
 
 
 

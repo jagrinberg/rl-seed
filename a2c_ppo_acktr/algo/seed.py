@@ -17,12 +17,15 @@ class SEED():
                  kl_coef,
                  lr=None,
                  eps=None,
+                 steps=512,
+                 env_steps=1000000,
                  max_grad_norm=None,
                  use_clipped_value_loss=True):
 
         self.actor_critic = actor_critic
         self.kl_coef = kl_coef
-        
+        self.steps = steps
+        self.env_steps = env_steps
         
         self.log_kl = torch.zeros(
                 1, requires_grad=True, device='cuda')
@@ -48,7 +51,7 @@ class SEED():
         
         self.kl_average = 0
         
-    def update(self, rollouts):
+    def update(self, rollouts, orig_obs, obsfilt):
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
         advantages = (advantages - advantages.mean()) / (
             advantages.std() + 1e-5)
@@ -62,23 +65,24 @@ class SEED():
                 data_generator = rollouts.recurrent_generator(
                     advantages, self.num_mini_batch)
             else:
-                data_generator = rollouts.feed_forward_generator(
-                    advantages, self.num_mini_batch)
+                data_generator = rollouts.feed_forward_generator_seed(
+                    advantages, orig_obs, self.num_mini_batch)
 
             for sample in data_generator:
                 obs_batch, recurrent_hidden_states_batch, actions_batch, \
                    value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
-                        adv_targ = sample
+                        adv_targ, orig = sample
 
                 # Reshape to do in a single forward pass for all steps
                 values, action_log_probs, dist_entropy, pro = self.actor_critic.evaluate_actions(
                     obs_batch, recurrent_hidden_states_batch, masks_batch,
                     actions_batch)
                 
-                if self.kl_coef>.000001 and (e==0 or e==self.ppo_epoch-1):
+                # if self.kl_coef>.000001 and (e==0 or e==self.ppo_epoch-1):
+                if self.kl_coef>.000001:
                     with torch.no_grad():
                         values_g, action_log_probs_g, dist_entropy_g, pro_g = self.gail_learner.evaluate_actions(
-                            obs_batch, recurrent_hidden_states_batch, masks_batch,
+                            torch.FloatTensor(obsfilt(orig.cpu().numpy())).to(torch.device('cuda:0')), recurrent_hidden_states_batch, masks_batch,
                             actions_batch)
 
                     if self.actor_critic.cat == True:
@@ -94,7 +98,8 @@ class SEED():
                     self.kl_optim.zero_grad()
                     loss.backward()
                     self.kl_optim.step()
-                    self.kl_coef = self.log_kl.exp()/10
+                    self.kl_coef = torch.clamp(self.log_kl.exp()/10,0,0.1)
+                    # self.kl_coef = self.log_kl.exp()/10
                     
                 else:
                     self.kl_coef=0
@@ -118,10 +123,10 @@ class SEED():
                 else:
                     value_loss = 0.5 * (return_batch - values).pow(2).mean()
                 self.optimizer.zero_grad()
-                if self.kl_coef>.000001 and (e==0 or e==self.ppo_epoch-1):
+                # if self.kl_coef>.000001 and (e==0 or e==self.ppo_epoch-1):
+                if self.kl_coef>0.000001:
                     (value_loss * self.value_loss_coef + action_loss -
-                        dist_entropy * self.entropy_coef + 
-                        self.kl_coef * x).backward()
+                        dist_entropy * self.entropy_coef + self.kl_coef * x).backward()
                 else:
                     (value_loss * self.value_loss_coef + action_loss -
                         dist_entropy * self.entropy_coef).backward()
@@ -135,7 +140,7 @@ class SEED():
 
         num_updates = self.ppo_epoch * self.num_mini_batch
         print(self.kl_coef)
-        self.target_kl += .001
+        self.target_kl += 3*self.steps/self.env_steps
         value_loss_epoch /= num_updates
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
