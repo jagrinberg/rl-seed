@@ -66,9 +66,14 @@ class Policy(nn.Module):
         else:
             action = dist.sample()
         
+        
+        
         action_log_probs = dist.log_probs(action)
         dist_entropy = dist.entropy().mean()
-
+        
+        if self.cat == True:
+            action = action.type(torch.LongTensor)
+        
         return value, action, action_log_probs, rnn_hxs
 
     def get_value(self, inputs, rnn_hxs, masks):

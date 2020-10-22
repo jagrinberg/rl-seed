@@ -165,6 +165,9 @@ def main():
                     rollouts.obs[step], rollouts.recurrent_hidden_states[step],
                     rollouts.masks[step])
             # Obser reward and next obs
+            # if args.env_name == "Cartpole-v1":
+                # obs, reward, done, infos = envs.step(action.squeeze())
+            # else:
             obs, reward, done, infos = envs.step(action)
                     
             for info in infos:
