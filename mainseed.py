@@ -57,10 +57,10 @@ def main():
     
     aenv_name = args.env_name
     
-    # genv_name = "InvertedPendulumPyBulletEnv-v0"
-    genv_name = "Sub" + args.env_name
+    # genv_name = "InvertedPendulumSwingupPyBulletEnv-v0"
+    genv_name = args.env_name
     
-    args.env_name = "Sub" + args.env_name
+    # args.env_name = "Sub" + args.env_name
     
     if args.train_gail:
         init_gail = 29
