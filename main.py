@@ -249,23 +249,41 @@ def main():
             evaluate(actor_critic, ob_rms, args.env_name, args.seed,
                      args.num_processes, eval_log_dir, device)
         
-        # if len(episode_rewards) > 1 and np.mean(episode_rewards) > 400:
-            # save_path = os.path.join(args.save_dir, args.algo)
-            # try:
-                # os.makedirs(save_path)
-            # except OSError:
-                # pass
-            # env_name = args.env_name.split(":")
-            # env_name = env_name[-1]
-            # end = ".pt"
-            # if args.gail:
-                # end = "gail.pt"
-                # torch.save([discr], os.path.join(save_path, env_name + "discr.pt"))
-            # torch.save([
-                # actor_critic,
-                # getattr(utils.get_vec_normalize(envs), 'obs_rms', None)
-            # ], os.path.join(save_path, env_name + end))
-            # break
+        if len(episode_rewards) > 1 and np.mean(episode_rewards) > 4000 and args.env_name == "InvertedDoublePendulumPyBulletEnv-v0" and not(args.gail):
+            save_path = os.path.join(args.save_dir, args.algo)
+            try:
+                os.makedirs(save_path)
+            except OSError:
+                pass
+            env_name = args.env_name.split(":")
+            env_name = env_name[-1]
+            end = ".pt"
+            if args.gail:
+                end = "gail.pt"
+                torch.save([discr], os.path.join(save_path, env_name + "discr.pt"))
+            torch.save([
+                actor_critic,
+                getattr(utils.get_vec_normalize(envs), 'obs_rms', None)
+            ], os.path.join(save_path, env_name + end))
+            break
+        
+        if len(episode_rewards) > 1 and np.mean(episode_rewards) > -160 and args.env_name == "MountainCar-v0" and not(args.gail):
+            save_path = os.path.join(args.save_dir, args.algo)
+            try:
+                os.makedirs(save_path)
+            except OSError:
+                pass
+            env_name = args.env_name.split(":")
+            env_name = env_name[-1]
+            end = ".pt"
+            if args.gail:
+                end = "gail.pt"
+                torch.save([discr], os.path.join(save_path, env_name + "discr.pt"))
+            torch.save([
+                actor_critic,
+                getattr(utils.get_vec_normalize(envs), 'obs_rms', None)
+            ], os.path.join(save_path, env_name + end))
+            break
 
 
 if __name__ == "__main__":

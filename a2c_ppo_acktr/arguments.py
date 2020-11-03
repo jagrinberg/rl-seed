@@ -160,6 +160,11 @@ def get_args():
         default=False,
         help='use a linear schedule on the learning rate')
     parser.add_argument(
+        '--sub',
+        action='store_true',
+        default=False,
+        help='sub demos')
+    parser.add_argument(
         '--demonstration-coef',
         type=float,
         default=.2,
