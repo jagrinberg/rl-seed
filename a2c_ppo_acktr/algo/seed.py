@@ -92,6 +92,7 @@ class SEED():
                         x = calc_kl(pro_g[0],pro_g[1],pro[0],pro[1])
                         cur = x.item()
                     
+
                     
                     # print(cur)
                     loss = self.log_kl*(self.target_kl - cur)

@@ -119,7 +119,9 @@ python main.py --algo ppo --use-gae --num-steps 512 --num-processes 2 --env-name
 
 python main.py --algo ppo --use-gae --num-steps 512 --num-processes 2 --env-name "CartPole-v1" --use-linear-lr-decay --eval-interval 50 --log-dir log/cartpole --log-interval 1 --num-env-steps 1000000
 
+python main.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 256 --num-processes 2 --env-name "MountainCar-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/mountaincargail --log-interval 1 --num-env-steps 1000000
 
+python mainseed.py --algo ppo --use-gae --gail --gail-experts-dir gail_experts --num-steps 256 --num-processes 2 --env-name "sparse_gym:SparseMountainCar-v0" --use-linear-lr-decay --eval-interval 50 --log-dir log/subsparsemountaincarseed --gail-agent-dir final_models --log-interval 1 --num-env-steps 1000000 --demonstration-coef .3
 
 
 

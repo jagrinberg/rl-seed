@@ -97,6 +97,8 @@ class Policy(nn.Module):
         
         if not(self.cat):
             rnn_hxs = torch.cat((dist.mean.unsqueeze(0),dist.stddev.unsqueeze(0)), 0)
+        else:
+            rnn_hxs = dist.probs
         
         return value, action_log_probs, dist_entropy, rnn_hxs
 

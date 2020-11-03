@@ -83,11 +83,13 @@ recurrent_hidden_states = torch.zeros(1,
                                       actor_critic.recurrent_hidden_state_size)
 masks = torch.zeros(1, 1)
 
+obs = env.reset()
+
 if render_func is not None:
     print("HI")
     render_func('human')
 
-obs = env.reset()
+
 
 if args.env_name.find('Bullet') > -1:
     import pybullet as p
