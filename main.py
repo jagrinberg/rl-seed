@@ -222,13 +222,16 @@ def main():
             env_name = args.env_name.split(":")
             env_name = env_name[-1]
             end = ".pt"
+            begin = ""
             if args.gail:
                 end = "gail.pt"
-                torch.save([discr], os.path.join(save_path, env_name + "discr.pt"))
+                if args.sub:
+                    begin = "Sub"
+                torch.save([discr], os.path.join(save_path, begin+env_name + "discr.pt"))
             torch.save([
                 actor_critic,
                 getattr(utils.get_vec_normalize(envs), 'obs_rms', None)
-            ], os.path.join(save_path, env_name + end))
+            ], os.path.join(save_path, begin+env_name + end))
 
         if j % args.log_interval == 0 and len(episode_rewards) > 1:
             total_num_steps = (j + 1) * args.num_processes * args.num_steps
@@ -267,7 +270,25 @@ def main():
             ], os.path.join(save_path, env_name + end))
             break
         
-        if len(episode_rewards) > 1 and np.mean(episode_rewards) > -160 and args.env_name == "MountainCar-v0" and not(args.gail):
+        if len(episode_rewards) > 1 and np.mean(episode_rewards) > 400 and args.env_name == "InvertedPendulumPyBulletEnv-v0" and not(args.gail):
+            save_path = os.path.join(args.save_dir, args.algo)
+            try:
+                os.makedirs(save_path)
+            except OSError:
+                pass
+            env_name = args.env_name.split(":")
+            env_name = env_name[-1]
+            end = ".pt"
+            if args.gail:
+                end = "gail.pt"
+                torch.save([discr], os.path.join(save_path, env_name + "discr.pt"))
+            torch.save([
+                actor_critic,
+                getattr(utils.get_vec_normalize(envs), 'obs_rms', None)
+            ], os.path.join(save_path, env_name + end))
+            break
+            
+        if len(episode_rewards) > 1 and np.mean(episode_rewards) > 250 and args.env_name == "CartPole-v1" and not(args.gail) and args.sub:
             save_path = os.path.join(args.save_dir, args.algo)
             try:
                 os.makedirs(save_path)

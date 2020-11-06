@@ -57,7 +57,7 @@ def main():
     
     aenv_name = args.env_name
     
-    genv_name = "MountainCar-v0"
+    genv_name = args.env_name
     # genv_name = args.env_name
     
     if args.sub:
